@@ -100,8 +100,6 @@ void Forcefield::optimize()
     return;
 
   //@todo check m_method for a particular calculator
-  cppoptlib::LbfgsSolver<LennardJones> solver;
-
   LennardJones lj(this->parent());
   lj.setMolecule(m_molecule);
 
@@ -111,6 +109,8 @@ void Forcefield::optimize()
   Eigen::Map<Eigen::VectorXd> map(p, 3 * n);
   Eigen::VectorXd positions = map;
 
+  //@todo pick different solvers (e.g., FLAME)
+  cppoptlib::LbfgsSolver<LennardJones> solver;
   // Create a Criteria class to allow us to update coordinates
   cppoptlib::Criteria<Real> crit = cppoptlib::Criteria<Real>::defaults();
   crit.iterations = 5;

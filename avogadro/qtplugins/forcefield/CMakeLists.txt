@@ -4,6 +4,7 @@ include_directories("${AvogadroLibs_BINARY_DIR}/avogadro/io/")
 # Extension
 set(forcefield_srcs
   energycalculator.cpp
+  flameminimize.cpp
   forcefield.cpp
   lennardjones.cpp
 )
