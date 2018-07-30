@@ -26,6 +26,8 @@
 #include "cppoptlib/solver/gradientdescentsolver.h"
 #include "cppoptlib/solver/lbfgssolver.h"
 
+#include "flameminimize.h"
+
 namespace Avogadro {
 namespace QtPlugins {
 
@@ -110,13 +112,16 @@ void Forcefield::optimize()
   Eigen::VectorXd positions = map;
 
   //@todo pick different solvers (e.g., FLAME)
-  cppoptlib::LbfgsSolver<LennardJones> solver;
+  /* cppoptlib::LbfgsSolver<LennardJones> solver;
   // Create a Criteria class to allow us to update coordinates
   cppoptlib::Criteria<Real> crit = cppoptlib::Criteria<Real>::defaults();
   crit.iterations = 5;
   solver.setStopCriteria(crit);
+  */
+  FlameMinimizer solver(this->parent());
+  solver.setMolecule(m_molecule);
 
-  for (unsigned int i = 0; i < m_maxSteps / crit.iterations; ++i) {
+  for (unsigned int i = 0; i < m_maxSteps; ++i) {
     solver.minimize(lj, positions);
     const double* d = positions.data();
 
