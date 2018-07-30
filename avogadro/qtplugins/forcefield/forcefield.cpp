@@ -118,7 +118,7 @@ void Forcefield::optimize()
   crit.iterations = 5;
   solver.setStopCriteria(crit);
   */
-  FlameMinimizer solver(this->parent());
+  FlameMinimize solver(this->parent());
   solver.setMolecule(m_molecule);
 
   for (unsigned int i = 0; i < m_maxSteps; ++i) {

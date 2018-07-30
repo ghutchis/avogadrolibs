@@ -15,35 +15,33 @@
 namespace Avogadro {
 
 FlameMinimize::FlameMinimize(QObject* parent_)
-  : QObject(parent_)
-  , m_molecule(nullptr)
-  , m_calc(nullptr)
+  : QObject(parent_), m_molecule(nullptr), m_calc(nullptr)
 {}
 
 void FlameMinimize::setMolecule(QtGui::Molecule* mol)
 {
   m_molecule = mol;
 
-  m_grad.resize(3 * mol->atomCount());
-  m_grad.setZero();
+  m_forces.resize(3 * mol->atomCount());
+  m_forces.setZero();
   m_velocities.resize(3 * mol->atomCount());
   m_velocities.setZero();
-  m_acel.resize(3 * mol->atomCount());
+  m_accel.resize(3 * mol->atomCount());
   m_accel.setZero();
 
   m_invMasses.resize(3 * mol->atomCount());
   m_invMasses.setZero();
   for (unsigned int i = 0; i < mol->atomCount(); ++i) {
     //@todo should this be set to 1.0 amu?
-    double scaledMass = log(Elements::mass(mol->atom(i).atomicNumber()));
+    double scaledMass = log(Core::Elements::mass(mol->atom(i).atomicNumber()));
 
-    m_invMasses[3 * n] = 1.0 / scaledMass;
-    m_invMasses[3 * n + 1] = 1.0 / scaledMass;
-    m_invMasses[3 * n + 2] = 1.0 / scaledMass;
+    m_invMasses[3 * i] = 1.0 / scaledMass;
+    m_invMasses[3 * i + 1] = 1.0 / scaledMass;
+    m_invMasses[3 * i + 2] = 1.0 / scaledMass;
   }
 }
 
-bool FlameMinimize::minimize(EnergyCalculator& EnergyCalculator,
+bool FlameMinimize::minimize(EnergyCalculator& calc,
                              Eigen::VectorXd& positions)
 {
   if (m_molecule == nullptr)
@@ -58,21 +56,29 @@ bool FlameMinimize::minimize(EnergyCalculator& EnergyCalculator,
   double deltaT = 0.1; // fs
   unsigned int positiveSteps = 0;
 
+  m_forces.setZero();
+  m_velocities.setZero();
+  m_accel.setZero();
+
   for (unsigned int i = 0; i < 20; ++i) {
     verletIntegrate(positions, deltaT);
+    qDebug() << "vvi forces " << m_forces.norm() << " vel " << m_velocities.norm();
 
     // Step 1
-    double power = (-1 * m_grad).dotProduct(m_velocities);
+    double power = m_forces.dot(m_velocities);
 
     // Step 2
-    m_velocities = (1.0 - alpha) * m_velocities -
-                   m_grad.cwiseProduct(m_velocities.cwiseAbs());
+    m_velocities = (1.0 - alpha) * m_velocities + alpha*
+                   m_forces.cwiseProduct(m_velocities.cwiseAbs());
+
+   qDebug() << " power " << power;
+   qDebug() << " forces " << m_forces.norm() << " vel " << m_velocities.norm();
 
     if (power > 0.0) {
       // Step 3
       positiveSteps++;
       if (positiveSteps > 5) {
-        deltaT = min(1.1 * deltaT, 1.0);
+        deltaT = std::min(1.1 * deltaT, 1.0);
         alpha = 0.99 * alpha;
       }
     } else {
@@ -83,7 +89,9 @@ bool FlameMinimize::minimize(EnergyCalculator& EnergyCalculator,
       alpha = 0.1;
     }
 
-    double Frms = m_grad.norm() / sqrt(positions.rows());
+    qDebug() << " energy " << m_calc->value(positions);
+
+    double Frms = m_forces.norm() / sqrt(positions.rows());
     if (Frms < 1.0e-5)
       break;
   }
@@ -99,12 +107,13 @@ void FlameMinimize::verletIntegrate(Eigen::VectorXd& positions, double deltaT)
     return;
 
   positions += deltaT * m_velocities + (deltaT * deltaT / 2.0) * m_accel;
-  m_calc->gradient(positions, m_grad);
+  m_calc->gradient(positions, m_forces);
+  m_forces = -1*m_forces;
   // F = m * a  ==> a = F/m
   // use coefficient-wise product from Eigen
   //  see http://eigen.tuxfamily.org/dox/group__TutorialArrayClass.html
   Eigen::VectorXd newAccel(3 * m_molecule->atomCount());
-  newAccel = -1 * m_grad.cwiseProduct(m_invMasses);
+  newAccel = m_forces.cwiseProduct(m_invMasses);
   m_velocities += 0.5 * deltaT * (m_accel + newAccel);
   m_accel = newAccel;
 }

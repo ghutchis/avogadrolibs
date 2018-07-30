@@ -43,7 +43,7 @@ protected:
   QtGui::Molecule* m_molecule;
   EnergyCalculator* m_calc;
   Eigen::VectorXd m_invMasses;
-  Eigen::VectorXd m_grad;
+  Eigen::VectorXd m_forces;
   Eigen::VectorXd m_velocities;
   Eigen::VectorXd m_accel;
 };
