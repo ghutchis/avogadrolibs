@@ -53,7 +53,7 @@ bool FlameMinimize::minimize(EnergyCalculator& calc,
   // etc.)
 
   double alpha = 0.1;  // start
-  double deltaT = 0.1; // fs
+  double deltaT = 0.1 * 1.0e-15; // fs
   unsigned int positiveSteps = 0;
 
   m_forces.setZero();
