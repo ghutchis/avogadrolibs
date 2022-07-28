@@ -1,17 +1,6 @@
 /******************************************************************************
-
   This source file is part of the Avogadro project.
-
-  Copyright 2011-2012 Kitware, Inc.
-
-  This source code is released under the New BSD License, (the "License").
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
-
+  This source code is released under the 3-Clause BSD License, (see "LICENSE").
 ******************************************************************************/
 
 #ifndef AVOGADRO_CORE_GRAPH_H
@@ -146,19 +135,19 @@ public:
    * @return a vector containing the indices of each vertex that the vertex at
    * index shares an edge with.
    */
-  const std::vector<size_t> neighbors(size_t index) const;
+  std::vector<size_t> neighbors(size_t index) const;
 
   /**
    * @return a vector containing the indices of each edge that the vertex at
    * @p index is an endpoint of; that is, the edges incident at it.
    */
-  const std::vector<size_t> edges(size_t index) const;
+  std::vector<size_t> edges(size_t index) const;
 
   /**
    * @return the indices of the two vertices that the edge at @p index connects;
    * that is, its endpoints.
    */
-  const std::pair<size_t, size_t> endpoints(size_t edgeIndex) const;
+  std::pair<size_t, size_t> endpoints(size_t edgeIndex) const;
 
   /** @return the degree of the vertex at @p index. */
   size_t degree(size_t index) const;

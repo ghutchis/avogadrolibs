@@ -1,17 +1,6 @@
 /******************************************************************************
-
   This source file is part of the Avogadro project.
-
-  Copyright 2013-2015 Kitware, Inc.
-
-  This source code is released under the New BSD License, (the "License").
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
-
+  This source code is released under the 3-Clause BSD License, (see "LICENSE").
 ******************************************************************************/
 
 #ifndef AVOGADRO_QTGUI_RWMOLECULE_H
@@ -214,9 +203,6 @@ public:
    */
   Vector3 atomPosition3d(Index atomId) const;
 
-  std::string label(Index atomId) const;
-  bool setLabel(Index atomId, const std::string& label,
-                const QString& undoText = QStringLiteral("Change Atom Label"));
   /**
    * Replace the current array of 3D atomic coordinates.
    * @param pos The new coordinate array. Must be of length atomCount().
@@ -225,7 +211,7 @@ public:
    */
   bool setAtomPositions3d(
     const Core::Array<Vector3>& pos,
-    const QString& undoText = QStringLiteral("Change Atom Positions"));
+    const QString& undoText = tr("Change Atom Positions"));
 
   /**
    * Set the 3D position of a single atom.
@@ -234,14 +220,18 @@ public:
    * @param undoText The undo text to be displayed for undo commands.
    * @return True on success, false otherwise.
    */
-  bool setAtomPosition3d(
-    Index atomId, const Vector3& pos,
-    const QString& undoText = QStringLiteral("Change Atom Position"));
+  bool setAtomPosition3d(Index atomId, const Vector3& pos,
+                         const QString& undoText = tr("Change Atom Position"));
+
+  std::string label(Index atomId) const;
+  bool setLabel(Index atomId, const std::string& label,
+                const QString& undoText = tr("Change Atom Label"));
 
   /**
    * Set whether the specified atom is selected or not.
    */
-  void setAtomSelected(Index atomId, bool selected);
+  void setAtomSelected(Index atomId, bool selected,
+                       const QString& undoText = tr("Change Selection"));
 
   /**
    * Query whether the supplied atom index has been selected.
@@ -845,9 +835,8 @@ inline Core::Array<RWMolecule::BondType> RWMolecule::bonds(
   auto atomBonds = m_molecule.bonds(atomId);
   Core::Array<RWMolecule::BondType> result;
   for (Index i = 0; i < atomBonds.size(); ++i) {
-    result.push_back(BondType(
-      const_cast<RWMolecule *>(this), atomBonds[i].index()
-    ));
+    result.push_back(
+      BondType(const_cast<RWMolecule*>(this), atomBonds[i].index()));
   }
   return result;
 }

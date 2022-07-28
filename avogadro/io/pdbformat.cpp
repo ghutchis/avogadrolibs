@@ -19,7 +19,6 @@
 
 using Avogadro::Core::Array;
 using Avogadro::Core::Atom;
-using Avogadro::Core::Bond;
 using Avogadro::Core::Elements;
 using Avogadro::Core::Molecule;
 using Avogadro::Core::Residue;
@@ -34,8 +33,7 @@ using std::istringstream;
 using std::string;
 using std::vector;
 
-namespace Avogadro {
-namespace Io {
+namespace Avogadro::Io {
 
 PdbFormat::PdbFormat() {}
 
@@ -50,6 +48,12 @@ bool PdbFormat::read(std::istream& in, Core::Molecule& mol)
   bool ok(false);
   int coordSet = 0;
   Array<Vector3> positions;
+  Array<size_t> rawToAtomId;
+  Array<size_t> altAtomIds;
+  Array<int> altAtomCoordSets;
+  Array<char> altAtomLocs;
+  std::set<char> altLocs;
+  Array<Vector3> altAtomPositions;
 
   while (getline(in, buffer)) { // Read Each line one by one
 
@@ -75,13 +79,13 @@ bool PdbFormat::read(std::istream& in, Core::Molecule& mol)
       Real beta = lexicalCast<Real>(buffer.substr(40, 7), ok) * DEG_TO_RAD;
       Real gamma = lexicalCast<Real>(buffer.substr(47, 8), ok) * DEG_TO_RAD;
 
-      Core::UnitCell* cell = new Core::UnitCell(a, b, c, alpha, beta, gamma);
+      auto* cell = new Core::UnitCell(a, b, c, alpha, beta, gamma);
       mol.setUnitCell(cell);
     }
 
     else if (startsWith(buffer, "ATOM") || startsWith(buffer, "HETATM")) {
       // First we initialize the residue instance
-      size_t residueId = lexicalCast<size_t>(buffer.substr(22, 4), ok);
+      auto residueId = lexicalCast<size_t>(buffer.substr(22, 4), ok);
       if (!ok) {
         appendError("Failed to parse residue sequence number: " +
                     buffer.substr(22, 4));
@@ -91,7 +95,7 @@ bool PdbFormat::read(std::istream& in, Core::Molecule& mol)
       if (residueId != currentResidueId) {
         currentResidueId = residueId;
 
-        string residueName = lexicalCast<string>(buffer.substr(17, 3), ok);
+        auto residueName = lexicalCast<string>(buffer.substr(17, 3), ok);
         if (!ok) {
           appendError("Failed to parse residue name: " + buffer.substr(17, 3));
           return false;
@@ -107,7 +111,7 @@ bool PdbFormat::read(std::istream& in, Core::Molecule& mol)
           r->setHeterogen(true);
       }
 
-      string atomName = lexicalCast<string>(buffer.substr(12, 4), ok);
+      auto atomName = lexicalCast<string>(buffer.substr(12, 4), ok);
       if (!ok) {
         appendError("Failed to parse atom name: " + buffer.substr(12, 4));
         return false;
@@ -132,6 +136,8 @@ bool PdbFormat::read(std::istream& in, Core::Molecule& mol)
         return false;
       }
 
+      auto altLoc = lexicalCast<string>(buffer.substr(16, 1), ok);
+
       string element; // Element symbol, right justified
       element = buffer.substr(76, 2);
       element = trimmed(element);
@@ -144,12 +150,24 @@ bool PdbFormat::read(std::istream& in, Core::Molecule& mol)
       if (atomicNum == 255)
         appendError("Invalid element");
 
-      if (coordSet == 0) {
+      if (altLoc.compare("") && altLoc.compare("A")) {
+        if (coordSet == 0) {
+          rawToAtomId.push_back(-1);
+          altAtomIds.push_back(mol.atomCount() - 1);
+        } else {
+          altAtomIds.push_back(positions.size() - 1);
+        }
+        altAtomCoordSets.push_back(coordSet);
+        altAtomLocs.push_back(altLoc[0]);
+        altLocs.insert(altLoc[0]);
+        altAtomPositions.push_back(pos);
+      } else if (coordSet == 0) {
         Atom newAtom = mol.addAtom(atomicNum);
         newAtom.setPosition3d(pos);
         if (r) {
           r->addResidueAtom(atomName, newAtom);
         }
+        rawToAtomId.push_back(mol.atomCount() - 1);
       } else {
         positions.push_back(pos);
       }
@@ -178,6 +196,7 @@ bool PdbFormat::read(std::istream& in, Core::Molecule& mol)
            ++terCount)
         ; // semicolon is intentional
       a = a - terCount;
+      a = rawToAtomId[a];
 
       int bCoords[] = { 11, 16, 21, 26 };
       for (int i = 0; i < 4; i++) {
@@ -196,14 +215,32 @@ bool PdbFormat::read(std::istream& in, Core::Molecule& mol)
                ++terCount)
             ; // semicolon is intentional
           b = b - terCount;
+          b = rawToAtomId[b];
 
-          if (a < b) {
+          if (a < b && a >= 0 && b >= 0) {
             mol.Avogadro::Core::Molecule::addBond(a, b, 1);
           }
         }
       }
     }
   } // End while loop
+
+  size_t count = mol.coordinate3dCount() ? mol.coordinate3dCount() : 1;
+  for (size_t c = 0; c < count; c++) {
+    for (char l: altLocs) {
+      Array<Vector3> coordinateSet = c == size_t(0) ? mol.atomPositions3d() : mol.coordinate3d(c);
+      bool found = false;
+      for (size_t i = 0; i < altAtomCoordSets.size(); i++) {
+        if (altAtomCoordSets[i] == c && altAtomLocs[i] == l) {
+          found = true;
+          coordinateSet[altAtomIds[i]] = altAtomPositions[i];
+        }
+      }
+      if (found)
+        mol.setCoordinate3d(coordinateSet, mol.coordinate3dCount() ? mol.coordinate3dCount() : 1);
+    }
+  }
+
   mol.perceiveBondsSimple();
   mol.perceiveBondsFromResidueData();
   perceiveSubstitutedCations(mol);
@@ -216,14 +253,14 @@ bool PdbFormat::read(std::istream& in, Core::Molecule& mol)
 std::vector<std::string> PdbFormat::fileExtensions() const
 {
   std::vector<std::string> ext;
-  ext.push_back("pdb");
+  ext.emplace_back("pdb");
   return ext;
 }
 
 std::vector<std::string> PdbFormat::mimeTypes() const
 {
   std::vector<std::string> mime;
-  mime.push_back("chemical/x-pdb");
+  mime.emplace_back("chemical/x-pdb");
   return mime;
 }
 
@@ -251,15 +288,8 @@ void PdbFormat::perceiveSubstitutedCations(Core::Molecule& molecule)
     Index j = 0;
     for (const auto &bond : molecule.bonds(i)) {
       unsigned char otherAtomicNumber(0);
-      Index index1(bond.atom1().index());
-      Index index2(bond.atom2().index());
-      if (index1 == i) {
-        otherAtomicNumber = molecule.atomicNumber(index2);
-        bondCount += bond.order();
-      } else if (index2 == i) {
-        otherAtomicNumber = molecule.atomicNumber(index1);
-        bondCount += bond.order();
-      }
+      otherAtomicNumber = molecule.atomicNumber(bond.getOtherAtom(i).index());
+      bondCount += bond.order();
       if (otherAtomicNumber && otherAtomicNumber != 6) {
         bondCount = 0;
         break;
@@ -273,5 +303,4 @@ void PdbFormat::perceiveSubstitutedCations(Core::Molecule& molecule)
   }
 }
 
-} // namespace Io
 } // namespace Avogadro
