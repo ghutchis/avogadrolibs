@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Avogadro 1.97.0\n"
 "Report-Msgid-Bugs-To: avogadro-devel@lists.sourceforge.net\n"
-"POT-Creation-Date: 2023-09-17 02:00+0000\n"
+"POT-Creation-Date: 2023-10-08 01:41+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4470,11 +4470,11 @@ msgstr ""
 msgid "Template"
 msgstr ""
 
-#: qtplugins/templatetool/templatetool.cpp:298
+#: qtplugins/templatetool/templatetool.cpp:294
 msgid "Insert Template"
 msgstr ""
 
-#: qtplugins/templatetool/templatetool.cpp:491
+#: qtplugins/templatetool/templatetool.cpp:544
 msgid "Insert Ligand"
 msgstr ""
 
@@ -4483,7 +4483,7 @@ msgstr ""
 msgid "Template tool"
 msgstr ""
 
-#: qtplugins/templatetool/templatetoolwidget.cpp:263
+#: qtplugins/templatetool/templatetoolwidget.cpp:288
 msgid "Other..."
 msgstr ""
 
@@ -5463,7 +5463,7 @@ msgstr ""
 
 #. i18n: file: qtplugins/insertdna/insertdnadialog.ui:227
 #. i18n: ectx: property (text), widget (QPushButton, insertButton)
-#. i18n: file: qtplugins/insertfragment/insertfragmentdialog.ui:69
+#. i18n: file: qtplugins/insertfragment/insertfragmentdialog.ui:86
 #. i18n: ectx: property (text), widget (QPushButton, insertFragmentButton)
 msgid "Insert"
 msgstr ""
