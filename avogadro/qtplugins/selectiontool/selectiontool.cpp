@@ -97,11 +97,24 @@ QUndoCommand* SelectionTool::mousePressEvent(QMouseEvent* e)
 
 QUndoCommand* SelectionTool::mouseReleaseEvent(QMouseEvent* e)
 {
-  // If the click is released on an atom, add it to the list
-  if (e->button() != Qt::LeftButton || !m_renderer || m_doubleClick) {
+  if (m_doubleClick || !m_renderer) {
     m_doubleClick = false;
     return nullptr;
   }
+
+  if (e->button() != Qt::LeftButton) {
+    // not the left button
+    m_doubleClick = false;
+    Vector2 select = Vector2(e->pos().x(), e->pos().y());
+    Identifier hit = m_renderer->hit(select.x(), select.y());
+    // Reset the atom list if it's outside the list
+    if (!hit.isValid()) {
+      clearAtoms();
+    }
+
+    return nullptr;
+  }
+  // If the click is released on an atom, add it to the list
   // Assess whether the selection box is big enough to use, or a mis-click.
   m_end = Vector2(e->pos().x(), e->pos().y());
   Vector2f start(m_start.x() < m_end.x() ? m_start.x() : m_end.x(),
