@@ -1,7 +1,7 @@
 //#define CONTOUR_LINES
 //#define TOON_SHADING
 #version 400
-precision highp float; 
+precision highp float;
 // normalized corner
 in vec2 v_corner;
 // color
@@ -88,7 +88,7 @@ void main()
 
   uv = v_tileOffset + uv * u_texScale;
 
-  //gl_FragColor = vec4(v_color, 1.0) * texture2D(u_tex, uv);
+  //gl_FragColor = vec4(v_color, 1.0) * texture(u_tex, uv);
 
   // direction of light source
   vec3 L = normalize(vec3(0, 1, 1));
@@ -109,8 +109,8 @@ void main()
 
   // final color
   vec3 color = ambient + diffuse + specular;
-  outColor = 1.2 * vec4(color, 1.0) * texture2D(u_tex, uv); // AO + Phong reflection [+ contours]
+  outColor = 1.2 * vec4(color, 1.0) * texture(u_tex, uv); // AO + Phong reflection [+ contours]
   //gl_FragColor = vec4(color, 1.0); // Phong reflection [+ contours]
-  //gl_FragColor = 1.2 * texture2D(u_tex, uv); // AO [+ contours]
+  //gl_FragColor = 1.2 * texture(u_tex, uv); // AO [+ contours]
   //gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // contours + white atoms
 }

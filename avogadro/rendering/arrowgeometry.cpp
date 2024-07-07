@@ -46,7 +46,8 @@ ArrowGeometry::ArrowGeometry() : m_dirty(false), d(new Private) {}
 ArrowGeometry::ArrowGeometry(const ArrowGeometry& other)
   : Drawable(other), m_vertices(other.m_vertices),
     m_lineStarts(other.m_lineStarts), m_dirty(true), d(new Private)
-{}
+{
+}
 
 ArrowGeometry::~ArrowGeometry()
 {
@@ -95,10 +96,8 @@ void ArrowGeometry::render(const Camera& camera)
   }
 
   // Render the arrows using the shader.
-  for (auto & m_vertice : m_vertices) {
-    Vector3f v3 =
-      m_vertice.first +
-      0.8 * (m_vertice.second - m_vertice.first);
+  for (auto& m_vertice : m_vertices) {
+    Vector3f v3 = m_vertice.first + 0.8 * (m_vertice.second - m_vertice.first);
     drawLine(m_vertice.first, v3, 2);
     drawCone(v3, m_vertice.second, 0.05, 1.0);
   }
@@ -118,10 +117,11 @@ void ArrowGeometry::drawLine(const Vector3f& start, const Vector3f& end,
 {
   // Draw a line between two points of the specified thickness
 
+  /*/
   glPushAttrib(GL_LIGHTING_BIT);
   glDisable(GL_LIGHTING);
 
-  glLineWidth(lineWidth);
+  //glLineWidth(lineWidth);
 
   // Draw the line
   glBegin(GL_LINE_STRIP);
@@ -130,6 +130,7 @@ void ArrowGeometry::drawLine(const Vector3f& start, const Vector3f& end,
   glEnd();
 
   glPopAttrib();
+  */
 }
 
 void ArrowGeometry::drawCone(const Vector3f& base, const Vector3f& cap,
@@ -157,6 +158,7 @@ void ArrowGeometry::drawCone(const Vector3f& base, const Vector3f& cap,
     Vector3f vPrec = sin(alphaPrec) * ortho1 + cos(alphaPrec) * ortho2 + base;
     Vector3f n = (cap - v).cross(v - vPrec).normalized();
     Vector3f nNext = (cap - vNext).cross(vNext - v).normalized();
+    /*
     glBegin(GL_TRIANGLES);
     glColor3ub(0, 255, 0);
     glNormal3fv((n + nNext).normalized().data());
@@ -166,9 +168,11 @@ void ArrowGeometry::drawCone(const Vector3f& base, const Vector3f& cap,
     glNormal3fv(n.data());
     glVertex3fv(v.data());
     glEnd();
+    */
   }
 
   // Now to draw the base
+  /*
   glBegin(GL_TRIANGLE_FAN);
   glNormal3fv((-axisNormalized).eval().data());
   glVertex3fv(base.data());
@@ -178,6 +182,7 @@ void ArrowGeometry::drawCone(const Vector3f& base, const Vector3f& cap,
     glVertex3fv(v.data());
   }
   glEnd();
+  */
 }
 
 void ArrowGeometry::addSingleArrow(const Vector3f& pos1, const Vector3f& pos2)
@@ -188,4 +193,4 @@ void ArrowGeometry::addSingleArrow(const Vector3f& pos1, const Vector3f& pos2)
   m_dirty = true;
 }
 
-} // End namespace Avogadro
+} // namespace Avogadro::Rendering

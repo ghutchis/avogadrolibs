@@ -249,7 +249,7 @@ void CurveGeometry::render(const Camera& camera)
         "normal", ColorNormalVertex::normalOffset(), sizeof(ColorNormalVertex),
         FloatType, 3, ShaderProgram::NoNormalize));
       if (line->flat && m_canBeFlat) {
-        glLineWidth(-line->radius);
+        // glLineWidth(-line->radius);
       }
       glDrawRangeElements(line->flat && m_canBeFlat ? GL_LINE_STRIP
                                                     : GL_TRIANGLES,
@@ -313,4 +313,4 @@ Array<Identifier> CurveGeometry::areaHits(const Frustrum& f) const
   return result;
 }
 
-} // namespace Avogadro
+} // namespace Avogadro::Rendering

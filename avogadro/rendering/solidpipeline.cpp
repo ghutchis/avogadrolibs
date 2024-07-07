@@ -54,12 +54,8 @@ public:
 };
 
 static const GLfloat s_fullscreenQuad[] = {
-  -1.0f, -1.0f, 0.0f,
-  1.0f, -1.0f, 0.0f,
-  -1.0f,  1.0f, 0.0f,
-  -1.0f,  1.0f, 0.0f,
-  1.0f, -1.0f, 0.0f,
-  1.0f,  1.0f, 0.0f,
+  -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, -1.0f, 1.0f, 0.0f,
+  -1.0f, 1.0f,  0.0f, 1.0f, -1.0f, 0.0f, 1.0f,  1.0f, 0.0f,
 };
 
 void initializeFramebuffer(GLuint* outFBO, GLuint* texRGB, GLuint* texDepth)
@@ -124,6 +120,7 @@ void SolidPipeline::initialize()
 void SolidPipeline::begin()
 {
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&d->defaultFBO);
+  std::cout << " drawing to " << d->defaultFBO << std::endl;
   glBindFramebuffer(GL_FRAMEBUFFER, d->renderFBO);
   GLenum drawBuffersList[1] = { GL_COLOR_ATTACHMENT0 };
   glDrawBuffers(1, drawBuffersList);
@@ -145,17 +142,20 @@ void SolidPipeline::end()
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
   // Draw to screen
+  /*
   if (glIsFramebuffer(d->defaultFBO)) {
     glBindFramebuffer(GL_FRAMEBUFFER, d->defaultFBO);
     GLenum drawBuffersList[1] = { GL_COLOR_ATTACHMENT0 };
     glDrawBuffers(1, drawBuffersList);
   } else {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glDrawBuffer(GL_BACK);
-  }
-  d->attachStage(d->firstStageShaders, "inRGBTex", d->renderTexture, "inDepthTex",
-                 d->depthTexture, m_width, m_height);
-  d->firstStageShaders.setUniformValue("inAoEnabled", m_aoEnabled ? 1.0f : 0.0f);
+  */
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glDrawBuffer(GL_BACK);
+  //}
+  d->attachStage(d->firstStageShaders, "inRGBTex", d->renderTexture,
+                 "inDepthTex", d->depthTexture, m_width, m_height);
+  d->firstStageShaders.setUniformValue("inAoEnabled",
+                                       m_aoEnabled ? 1.0f : 0.0f);
   d->firstStageShaders.setUniformValue("inAoStrength", m_aoStrength);
   d->firstStageShaders.setUniformValue("inEdStrength", m_edStrength);
   glDrawArrays(GL_TRIANGLES, 0, 6);

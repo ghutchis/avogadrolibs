@@ -152,7 +152,7 @@ void LineStripGeometry::render(const Camera& camera)
   while (startIter + 1 != startEnd) {
     startIndex = *startIter;
     endIndex = *(startIter + 1);
-    glLineWidth(*widthIter);
+    // glLineWidth(*widthIter);
     glDrawArrays(GL_LINE_STRIP, static_cast<GLint>(startIndex),
                  static_cast<GLsizei>(endIndex - startIndex));
     ++startIter;
@@ -162,7 +162,7 @@ void LineStripGeometry::render(const Camera& camera)
   // There is an implicit ending index of m_vertices.size():
   startIndex = *startIter;
   endIndex = static_cast<unsigned int>(m_vertices.size());
-  glLineWidth(*widthIter);
+  // glLineWidth(*widthIter);
   glDrawArrays(GL_LINE_STRIP, static_cast<GLint>(startIndex),
                static_cast<GLsizei>(endIndex - startIndex));
 
