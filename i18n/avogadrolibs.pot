@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Avogadro 1.101.0\n"
 "Report-Msgid-Bugs-To: avogadro-devel@lists.sourceforge.net\n"
-"POT-Creation-Date: 2025-10-07 17:58+0000\n"
+"POT-Creation-Date: 2025-10-19 02:04+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1943,8 +1943,8 @@ msgid "Stop"
 msgstr ""
 
 #: qtplugins/autoopt/autoopt.cpp:304 qtplugins/forcefield/forcefield.cpp:73
-#: qtplugins/forcefield/forcefield.cpp:368
-#: qtplugins/forcefield/forcefield.cpp:423 qtplugins/openbabel/openbabel.cpp:48
+#: qtplugins/forcefield/forcefield.cpp:367
+#: qtplugins/forcefield/forcefield.cpp:422 qtplugins/openbabel/openbabel.cpp:48
 #: qtplugins/openbabel/openbabel.cpp:560
 msgid "Optimize Geometry"
 msgstr ""
@@ -3096,9 +3096,9 @@ msgctxt "freeze atomic distances / glue atoms together"
 msgid "Unfuse Selected Atoms"
 msgstr ""
 
-#: qtplugins/forcefield/forcefield.cpp:316
-#: qtplugins/forcefield/forcefield.cpp:467
-#: qtplugins/forcefield/forcefield.cpp:537
+#: qtplugins/forcefield/forcefield.cpp:315
+#: qtplugins/forcefield/forcefield.cpp:466
+#: qtplugins/forcefield/forcefield.cpp:536
 #: qtplugins/playertool/playertool.cpp:348
 #: qtplugins/playertool/playertool.cpp:380 qtplugins/surfaces/surfaces.cpp:935
 #: qtplugins/surfaces/surfaces.cpp:979 qtplugins/surfaces/surfaces.cpp:991
@@ -3106,22 +3106,22 @@ msgstr ""
 msgid "Avogadro"
 msgstr ""
 
-#: qtplugins/forcefield/forcefield.cpp:317
+#: qtplugins/forcefield/forcefield.cpp:316
 msgid "No atoms provided for optimization"
 msgstr ""
 
-#: qtplugins/forcefield/forcefield.cpp:385
+#: qtplugins/forcefield/forcefield.cpp:384
 #, qt-format
 msgctxt "force field energy"
 msgid "Energy: %L1"
 msgstr ""
 
-#: qtplugins/forcefield/forcefield.cpp:466
+#: qtplugins/forcefield/forcefield.cpp:465
 #, qt-format
 msgid "%1 Energy = %L2"
 msgstr ""
 
-#: qtplugins/forcefield/forcefield.cpp:536
+#: qtplugins/forcefield/forcefield.cpp:535
 #, qt-format
 msgid "%1 Force Norm = %L2"
 msgstr ""
