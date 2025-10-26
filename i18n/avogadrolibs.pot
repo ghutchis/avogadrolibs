@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Avogadro 1.101.0\n"
+"Project-Id-Version: Avogadro 1.102.0\n"
 "Report-Msgid-Bugs-To: avogadro-devel@lists.sourceforge.net\n"
-"POT-Creation-Date: 2025-10-16 20:55+0000\n"
+"POT-Creation-Date: 2025-10-26 02:03+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -164,7 +164,7 @@ msgstr ""
 #. i18n: ectx: property (text), widget (QPushButton, closeButton)
 #. i18n: file: qtplugins/openmminput/openmminputdialog.ui:1019
 #. i18n: ectx: property (text), widget (QPushButton, closeButton)
-#: molequeue/inputgeneratorwidget.cpp:116 qtgui/containerwidget.cpp:33
+#: molequeue/inputgeneratorwidget.cpp:116 qtgui/containerwidget.cpp:35
 msgid "Close"
 msgstr ""
 
@@ -461,7 +461,7 @@ msgstr ""
 msgid "Split Horizontal"
 msgstr ""
 
-#: qtgui/containerwidget.cpp:30
+#: qtgui/containerwidget.cpp:31
 msgid "Split Vertical"
 msgstr ""
 
@@ -945,15 +945,15 @@ msgstr ""
 msgid "Oganesson"
 msgstr ""
 
-#: qtgui/filebrowsewidget.cpp:23
+#: qtgui/filebrowsewidget.cpp:24
 msgid "Browse"
 msgstr ""
 
-#: qtgui/filebrowsewidget.cpp:96
+#: qtgui/filebrowsewidget.cpp:97
 msgid "Select file:"
 msgstr ""
 
-#: qtgui/filebrowsewidget.cpp:99
+#: qtgui/filebrowsewidget.cpp:100
 msgid "Select executable:"
 msgstr ""
 
@@ -1223,15 +1223,15 @@ msgstr ""
 msgid "Wireframe"
 msgstr ""
 
-#: qtgui/moleculemodel.cpp:94
+#: qtgui/moleculemodel.cpp:120
 msgid "Untitled"
 msgstr ""
 
-#: qtgui/moleculemodel.cpp:109
+#: qtgui/moleculemodel.cpp:135
 msgid "Edit molecule"
 msgstr ""
 
-#: qtgui/moleculemodel.cpp:116
+#: qtgui/moleculemodel.cpp:142
 msgid "Not saved"
 msgstr ""
 
@@ -1243,24 +1243,24 @@ msgstr ""
 msgid "Periodic Table"
 msgstr ""
 
-#: qtgui/pythonscript.cpp:138 qtgui/pythonscript.cpp:226
+#: qtgui/pythonscript.cpp:154 qtgui/pythonscript.cpp:242
 #, qt-format
 msgid "Error running script '%1 %2': Timed out waiting for start (%3)."
 msgstr ""
 
-#: qtgui/pythonscript.cpp:148 qtgui/pythonscript.cpp:236
+#: qtgui/pythonscript.cpp:164 qtgui/pythonscript.cpp:252
 #, qt-format
 msgid ""
 "Error running script '%1 %2': failed to write to stdin (len=%3, wrote %4 "
 "bytes, QProcess error: %5)."
 msgstr ""
 
-#: qtgui/pythonscript.cpp:161
+#: qtgui/pythonscript.cpp:177
 #, qt-format
 msgid "Error running script '%1 %2': Timed out waiting for finish (%3)."
 msgstr ""
 
-#: qtgui/pythonscript.cpp:170
+#: qtgui/pythonscript.cpp:186
 #, qt-format
 msgid ""
 "Error running script '%1 %2': Abnormal exit status %3 (%4: %5)\n"
@@ -1269,32 +1269,32 @@ msgid ""
 "%6"
 msgstr ""
 
-#: qtgui/pythonscript.cpp:179
+#: qtgui/pythonscript.cpp:195
 #, qt-format
 msgid "Warning '%1'"
 msgstr ""
 
-#: qtgui/pythonscript.cpp:301
+#: qtgui/pythonscript.cpp:317
 msgid "Script failed to start."
 msgstr ""
 
-#: qtgui/pythonscript.cpp:304
+#: qtgui/pythonscript.cpp:320
 msgid "Script crashed."
 msgstr ""
 
-#: qtgui/pythonscript.cpp:307
+#: qtgui/pythonscript.cpp:323
 msgid "Script timed out."
 msgstr ""
 
-#: qtgui/pythonscript.cpp:310
+#: qtgui/pythonscript.cpp:326
 msgid "Read error."
 msgstr ""
 
-#: qtgui/pythonscript.cpp:313
+#: qtgui/pythonscript.cpp:329
 msgid "Write error."
 msgstr ""
 
-#: qtgui/pythonscript.cpp:317
+#: qtgui/pythonscript.cpp:333
 msgid "Unknown error."
 msgstr ""
 
@@ -2223,7 +2223,7 @@ msgstr ""
 #: qtplugins/coloropacitymap/coloropacitymap.cpp:84
 #: qtplugins/commandscripts/command.cpp:64
 #: qtplugins/commandscripts/command.cpp:83
-#: qtplugins/configurepython/configurepython.cpp:126
+#: qtplugins/configurepython/configurepython.cpp:136
 #: qtplugins/constraints/constraintsextension.cpp:40
 #: qtplugins/forcefield/forcefield.cpp:196
 #: qtplugins/forcefield/forcefield.cpp:198
@@ -2289,11 +2289,11 @@ msgstr ""
 msgid "Python Settings…"
 msgstr ""
 
-#: qtplugins/configurepython/configurepython.cpp:56
+#: qtplugins/configurepython/configurepython.cpp:58
 msgid "Install Python"
 msgstr ""
 
-#: qtplugins/configurepython/configurepython.cpp:57
+#: qtplugins/configurepython/configurepython.cpp:59
 msgid ""
 "Python is used for many Avogadro features. Do you want to download Python?"
 msgstr ""
@@ -2893,25 +2893,25 @@ msgstr ""
 msgid "Failed to read the data with the supplied format."
 msgstr ""
 
-#: qtplugins/crystal/unitcelldialog.cpp:250
-#: qtplugins/crystal/unitcelldialog.cpp:263
+#: qtplugins/crystal/unitcelldialog.cpp:251
+#: qtplugins/crystal/unitcelldialog.cpp:264
 msgid "No unit cell present."
 msgstr ""
 
 #. i18n: file: qtplugins/crystal/unitcelldialog.ui:14
 #. i18n: ectx: property (windowTitle), widget (QDialog, Avogadro::QtPlugins::UnitCellDialog)
-#: qtplugins/crystal/unitcelldialog.cpp:280
-#: qtplugins/crystal/unitcelldialog.cpp:291
-#: qtplugins/crystal/unitcelldialog.cpp:302 :442
+#: qtplugins/crystal/unitcelldialog.cpp:281
+#: qtplugins/crystal/unitcelldialog.cpp:292
+#: qtplugins/crystal/unitcelldialog.cpp:303 :442
 msgid "Unit Cell Editor"
 msgstr ""
 
-#: qtplugins/crystal/unitcelldialog.cpp:281
-#: qtplugins/crystal/unitcelldialog.cpp:292
+#: qtplugins/crystal/unitcelldialog.cpp:282
+#: qtplugins/crystal/unitcelldialog.cpp:293
 msgid "Ignoring singular cell matrix"
 msgstr ""
 
-#: qtplugins/crystal/unitcelldialog.cpp:303
+#: qtplugins/crystal/unitcelldialog.cpp:304
 msgid "Ignoring singular fractional cell matrix"
 msgstr ""
 
