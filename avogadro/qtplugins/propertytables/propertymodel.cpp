@@ -19,6 +19,7 @@
 
 #include <QtCore/QDebug>
 #include <QtGui/QColor>
+#include <QtWidgets/QColorDialog>
 
 #include <limits>
 
@@ -154,6 +155,7 @@ QString partialChargeType(Molecule* molecule)
   QString type;
 
   std::set<std::string> types = molecule->partialChargeTypes();
+
   if (types.size() > 0) {
     type = QString(types.cbegin()->c_str());
   } else {
@@ -195,24 +197,44 @@ QString formatChargeType(QString type)
   else if (type.toLower() == "mulliken")
     return "Mulliken";
   else if (type.toLower() == "lowdin")
-    return "Lowdin";
+    return "Löwdin";
+  else if (type.toLower() == "loewdin")
+    return "Löwdin";
   else if (type.toLower() == "chelpg")
     return "CHELPG";
   else if (type.toLower() == "hirshfeld")
     return "Hirshfeld";
+  else if (type.toLower() == "resp")
+    return "RESP";
+  else if (type.toLower() == "mbis")
+    return "MBIS";
+  else if (type.toLower() == "abcg2")
+    return "ABCG2";
+  else if (type.toLower() == "cm5")
+    return "CM5";
   else
     return type;
 }
 
-QString partialCharge(Molecule* molecule, int atom)
+QString partialCharge(Molecule* molecule, int atom, const QString& overrideType)
 {
-  // TODO: we need to track type and/or calling the charge calculator
   float charge = 0.0;
-  std::string type = partialChargeType(molecule).toStdString();
+  std::string type = overrideType.isEmpty()
+                       ? partialChargeType(molecule).toStdString()
+                       : overrideType.toStdString();
 
-  MatrixX charges =
-    Calc::ChargeManager::instance().partialCharges(type, *molecule);
-  charge = charges(atom, 0);
+  // first check if the molecule already has this charge type
+  // (e.g., read from a file like Mulliken charges)
+  // we need to use the original case from the molecule
+  std::set<std::string> types = molecule->partialChargeTypes();
+  if (types.find(type) != types.end()) {
+    MatrixX charges = molecule->partialCharges(type);
+    charge = charges(atom, 0);
+  } else {
+    MatrixX charges =
+      Calc::ChargeManager::instance().partialCharges(type, *molecule);
+    charge = charges(atom, 0);
+  }
 
   return QString("%L1").arg(charge, 0, 'f', 3);
 }
@@ -281,6 +303,9 @@ QVariant PropertyModel::data(const QModelIndex& index, int role) const
     }
   }
 
+  if (role == Qt::ToolTipRole && isColorIndex(index))
+    return tr("Click to change color");
+
   if (role != Qt::UserRole && role != Qt::DisplayRole && role != Qt::EditRole)
     return QVariant();
 
@@ -303,7 +328,7 @@ QVariant PropertyModel::data(const QModelIndex& index, int role) const
       case AtomDataFormalCharge:
         return m_molecule->formalCharge(row);
       case AtomDataPartialCharge:
-        return partialCharge(m_molecule, row);
+        return partialCharge(m_molecule, row, m_chargeType);
       case AtomDataX:
         if (role == Qt::UserRole)
           // Return the x coordinate as a double for sorting
@@ -611,7 +636,9 @@ QVariant PropertyModel::headerData(int section, Qt::Orientation orientation,
           QString charge =
             tr("%1 Partial Charge", "e.g. MMFF94 Partial Charge or "
                                     "Gasteiger Partial Charge");
-          return charge.arg(formatChargeType(partialChargeType(m_molecule)));
+          QString type = m_chargeType.isEmpty() ? partialChargeType(m_molecule)
+                                                : m_chargeType;
+          return charge.arg(formatChargeType(type));
         }
         case AtomDataX:
           return tr("X (Å)");
@@ -739,17 +766,17 @@ Qt::ItemFlags PropertyModel::flags(const QModelIndex& index) const
     if (index.column() == AtomDataElement ||
         index.column() == AtomDataFormalCharge || index.column() == AtomDataX ||
         index.column() == AtomDataY || index.column() == AtomDataZ ||
-        index.column() == AtomDataLabel || index.column() == AtomDataIsotope)
+        index.column() == AtomDataLabel || index.column() == AtomDataIsotope ||
+        index.column() == AtomDataColor)
       return editable;
-    // TODO: Color
   } else if (m_type == BondType) {
     if (index.column() == BondDataOrder || index.column() == BondDataLength ||
         index.column() == BondDataLabel)
       return editable;
   } else if (m_type == ResidueType) {
-    if (index.column() == ResidueDataLabel)
+    if (index.column() == ResidueDataLabel ||
+        index.column() == ResidueDataColor)
       return editable;
-    // TODO: Color
   } else if (m_type == AngleType) {
     if (index.column() == AngleDataValue)
       return editable;
@@ -841,6 +868,21 @@ bool PropertyModel::setData(const QModelIndex& index, const QVariant& value,
         }
         break;
       }
+      case AtomDataColor: {
+        // get the current color for the dialog
+        Vector3ub currentColor = m_molecule->color(index.row());
+        QColor currentQColor(currentColor[0], currentColor[1], currentColor[2]);
+        QColor newQColor = QColorDialog::getColor(currentQColor, nullptr,
+                                                  "Select Color for Atom");
+        if (newQColor.isValid()) {
+          Vector3ub newColor;
+          newColor[0] = static_cast<unsigned char>(newQColor.red());
+          newColor[1] = static_cast<unsigned char>(newQColor.green());
+          newColor[2] = static_cast<unsigned char>(newQColor.blue());
+          undoMolecule->setColor(index.row(), newColor);
+        }
+        break;
+      }
       default:
         return false;
     }
@@ -884,7 +926,23 @@ bool PropertyModel::setData(const QModelIndex& index, const QVariant& value,
       emit dataChanged(index, index);
       m_molecule->emitChanged(Molecule::Residues);
       return true;
-    }
+    } else if (index.column() == ResidueDataColor) {
+      // get the current color for the dialog
+      Vector3ub currentColor = m_molecule->residue(index.row()).color();
+      QColor currentQColor(currentColor[0], currentColor[1], currentColor[2]);
+      QColor newQColor = QColorDialog::getColor(currentQColor, nullptr,
+                                                "Select Color for Residue");
+      if (newQColor.isValid()) {
+        Vector3ub newColor;
+        newColor[0] = static_cast<unsigned char>(newQColor.red());
+        newColor[1] = static_cast<unsigned char>(newQColor.green());
+        newColor[2] = static_cast<unsigned char>(newQColor.blue());
+        undoMolecule->setResidueColor(index.row(), newColor);
+        emit dataChanged(index, index);
+        m_molecule->emitChanged(Molecule::Residues);
+        return true;
+      }
+    } // end editing residues
   } else if (m_type == AngleType) {
     if (index.column() == AngleDataValue) {
       bool ok;
@@ -908,6 +966,19 @@ bool PropertyModel::setData(const QModelIndex& index, const QVariant& value,
       return true;
     }
   }
+
+  return false;
+}
+
+bool PropertyModel::isColorIndex(const QModelIndex& index) const
+{
+  if (!index.isValid())
+    return false;
+
+  if (m_type == AtomType)
+    return index.column() == AtomDataColor;
+  if (m_type == ResidueType)
+    return index.column() == ResidueDataColor;
 
   return false;
 }
@@ -1074,10 +1145,41 @@ void PropertyModel::setTorsion(unsigned int index, double newValue)
   transformFragment();
 }
 
+QStringList PropertyModel::availableChargeTypes() const
+{
+  QStringList result;
+  if (m_molecule == nullptr)
+    return result;
+
+  // add types available from charge calculators
+  const auto options =
+    Calc::ChargeManager::instance().identifiersForMolecule(*m_molecule);
+  for (const auto& model : options) {
+    std::string t = Calc::ChargeManager::instance().nameForModel(model);
+    QString name = QString::fromStdString(t);
+    if (!result.contains(name))
+      result << name;
+  }
+
+  return result;
+}
+
+void PropertyModel::setChargeType(const QString& type)
+{
+  m_chargeType = type;
+  // refresh the partial charge column and header
+  beginResetModel();
+  endResetModel();
+}
+
 void PropertyModel::setMolecule(QtGui::Molecule* molecule)
 {
   if (molecule && molecule != m_molecule) {
     m_molecule = molecule;
+
+    // Initialize structure tracking for change detection
+    m_lastAtomCount = molecule->atomCount();
+    m_lastBondCount = molecule->bondCount();
 
     updateCache();
 
@@ -1112,17 +1214,40 @@ QString PropertyModel::secStructure(unsigned int type) const
 
 void PropertyModel::updateTable(unsigned int flags)
 {
-  if (flags & Molecule::Added || flags & Molecule::Removed) {
-    // tear it down and rebuild the model
-    updateCache();
-    beginResetModel();
-    endResetModel();
-  } else {
-    // we can just update the current data
-    emit dataChanged(
-      QAbstractItemModel::createIndex(0, 0),
-      QAbstractItemModel::createIndex(rowCount(), columnCount()));
+  // During animation/vibration, coordinates change rapidly but the table
+  // structure (number of atoms, bonds, etc.) remains the same. We can skip
+  // updates when only coordinates changed (Atoms flag without Added/Removed).
+  //
+  // Note: Some code (e.g., vibrations) incorrectly uses Added flag for
+  // coordinate changes. We detect actual structural changes by checking
+  // if the counts changed.
+  bool structureChanged = false;
+
+  if (m_molecule != nullptr) {
+    // Check if the actual structure changed (not just coordinates)
+    Index currentAtomCount = m_molecule->atomCount();
+    Index currentBondCount = m_molecule->bondCount();
+
+    if (currentAtomCount != m_lastAtomCount ||
+        currentBondCount != m_lastBondCount) {
+      structureChanged = true;
+      m_lastAtomCount = currentAtomCount;
+      m_lastBondCount = currentBondCount;
+    }
   }
+
+  if (!structureChanged) {
+    // For coordinate-only changes, just invalidate the cache
+    // This avoids race conditions during rapid animation updates
+    m_validCache = false;
+    return;
+  }
+
+  // For structural changes, do a full model reset
+  // Use beginResetModel/endResetModel to ensure thread-safe updates
+  updateCache();
+  beginResetModel();
+  endResetModel();
 }
 
 void PropertyModel::updateCache() const

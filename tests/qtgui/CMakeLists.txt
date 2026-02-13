@@ -17,13 +17,13 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/qtguitests.h.in"
 
 # Specify the name of each test (the Test will be appended where needed).
 set(tests
+  ElementTranslator
   GenericHighlighter
   HydrogenTools
-  # GitHub is showing this as a free() bug
-  # TODO: Fix this
-  # Molecule
+  MeshGenerator
+  Molecule
   RWMolecule
-  )
+)
 
 if (BUILD_MOLEQUEUE)
   # Pull in MoleQueue
@@ -37,11 +37,13 @@ endif()
 
 if(Python3_EXECUTABLE AND AVOGADRO_DATA)
   list(APPEND tests
-# FIXME: These tests are broken
-#    FileBrowseWidget
-#    InputGenerator
-#    InputGeneratorWidget
+    # these are still somewhat broken
+    # but it's not crucial
+    #FileBrowseWidget
+    #InputGenerator
+    #InputGeneratorWidget
   )
+  list(APPEND MoleQueueLink Avogadro::MoleQueue)
 endif()
 
 # Build up the source file names.
@@ -64,3 +66,28 @@ foreach(TestName ${tests})
   add_test(NAME "QtGui-${TestName}"
     COMMAND AvogadroQtGuiTests "--gtest_filter=${TestName}Test.*")
 endforeach()
+
+if (DEFINED ENV{LIB_FUZZING_ENGINE})
+  option(ENABLE_FUZZ "Enable fuzz testing." ON)
+else()
+  option(ENABLE_FUZZ "Enable fuzz testing." OFF)
+endif()
+
+if(ENABLE_FUZZ OR DEFINED ENV{LIB_FUZZING_ENGINE})
+  set(qtgui_fuzz rwmolecule)
+  foreach(fuzzName ${qtgui_fuzz})
+    add_executable(fuzz_qtgui_${fuzzName} fuzz-${fuzzName}.cpp)
+    if(DEFINED ENV{LIB_FUZZING_ENGINE})
+      target_link_libraries(fuzz_qtgui_${fuzzName}
+        PRIVATE Avogadro::QtGui
+        Qt${QT_VERSION}::Widgets Qt${QT_VERSION}::Test
+        $ENV{LIB_FUZZING_ENGINE})
+    else()
+      target_compile_options(fuzz_qtgui_${fuzzName} PRIVATE -g -fsanitize=fuzzer)
+      target_link_options(fuzz_qtgui_${fuzzName} PRIVATE -fsanitize=fuzzer)
+      target_link_libraries(fuzz_qtgui_${fuzzName}
+        PRIVATE Avogadro::QtGui
+        Qt${QT_VERSION}::Widgets Qt${QT_VERSION}::Test)
+    endif()
+  endforeach()
+endif()

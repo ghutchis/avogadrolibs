@@ -4,8 +4,8 @@ set(tests
   fchk
   molden
   orca
-  qcschema
   # TODO
+  # qcschema
   # GAMESS US
   # GAMESS UK
   # NWChem log
@@ -43,8 +43,25 @@ target_link_libraries(AvogadroQuantumIOTests Avogadro::IO Avogadro::QuantumIO
 # Now add all of the tests, using the gtest_filter argument so that only those
 # cases are run in each test invocation.
 foreach(TestName ${tests})
-  add_test(NAME "QuantumIo-${TestName}"
-    COMMAND AvogadroQuantumIOTests "--gtest_filter=${TestName}Test.*")
+  if(TestName STREQUAL "cube")
+    add_test(NAME "QuantumIo-cube"
+      COMMAND AvogadroQuantumIOTests "--gtest_filter=GaussianCubeTest.*")
+  elseif(TestName STREQUAL "fchk")
+    add_test(NAME "QuantumIo-fchk"
+      COMMAND AvogadroQuantumIOTests "--gtest_filter=GaussianFchkTest.*")
+  elseif(TestName STREQUAL "molden")
+    add_test(NAME "QuantumIo-molden"
+      COMMAND AvogadroQuantumIOTests "--gtest_filter=MoldenTest.*")
+  elseif(TestName STREQUAL "orca")
+    add_test(NAME "QuantumIo-orca"
+      COMMAND AvogadroQuantumIOTests "--gtest_filter=OrcaTest.*")
+  elseif(TestName STREQUAL "qcschema")
+    add_test(NAME "QuantumIo-qcschema"
+      COMMAND AvogadroQuantumIOTests "--gtest_filter=QCSchemaTest.*")
+  else()
+    add_test(NAME "QuantumIo-${TestName}"
+      COMMAND AvogadroQuantumIOTests "--gtest_filter=${TestName}Test.*")
+  endif()
 endforeach()
 
 if (DEFINED ENV{LIB_FUZZING_ENGINE})
@@ -64,8 +81,12 @@ if(ENABLE_FUZZ OR DEFINED ENV{LIB_FUZZING_ENGINE})
   foreach(fuzzName ${fuzz})
     add_executable(fuzz_${fuzzName} fuzztest.cpp)
     target_compile_definitions(fuzz_${fuzzName} PRIVATE -DFUZZ_INPUT_FORMAT="${fuzzName}")
-    target_compile_options(fuzz_${fuzzName} PRIVATE -g -fsanitize=fuzzer)
-    target_link_options(fuzz_${fuzzName} PRIVATE -fsanitize=fuzzer)
-    target_link_libraries(fuzz_${fuzzName} PRIVATE Avogadro::IO Avogadro::QuantumIO $ENV{LIB_FUZZING_ENGINE})
+    if(DEFINED ENV{LIB_FUZZING_ENGINE})
+      target_link_libraries(fuzz_${fuzzName} PRIVATE Avogadro::IO Avogadro::QuantumIO $ENV{LIB_FUZZING_ENGINE})
+    else()
+      target_compile_options(fuzz_${fuzzName} PRIVATE -g -fsanitize=fuzzer)
+      target_link_options(fuzz_${fuzzName} PRIVATE -fsanitize=fuzzer)
+      target_link_libraries(fuzz_${fuzzName} PRIVATE Avogadro::IO Avogadro::QuantumIO)
+    endif()
   endforeach()
 endif()

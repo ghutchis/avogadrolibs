@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <memory>
 #include <iostream>
 #include <fstream>
 #include <regex>
@@ -27,7 +28,23 @@ using Core::GaussianSet;
 
 ORCAOutput::ORCAOutput() {}
 
-ORCAOutput::~ORCAOutput() {}
+ORCAOutput::~ORCAOutput()
+{
+  clearBasisFunctions();
+}
+
+void ORCAOutput::clearBasisFunctions()
+{
+  for (auto* atomShells : m_basisFunctions) {
+    if (!atomShells)
+      continue;
+    for (auto* shell : *atomShells) {
+      delete shell;
+    }
+    delete atomShells;
+  }
+  m_basisFunctions.clear();
+}
 
 constexpr double BOHR_TO_ANGSTROM = 0.529177210544;
 constexpr double HARTREE_TO_EV = 27.211386245981;
@@ -47,10 +64,10 @@ std::vector<std::string> ORCAOutput::mimeTypes() const
 bool ORCAOutput::read(std::istream& in, Core::Molecule& molecule)
 {
   // Read the log file line by line
-  auto* basis = new GaussianSet;
+  auto basis = std::make_unique<GaussianSet>();
 
   while (!in.eof())
-    processLine(in, basis);
+    processLine(in, basis.get());
 
   // Set up the molecule
   int nAtom = 0;
@@ -157,9 +174,9 @@ bool ORCAOutput::read(std::istream& in, Core::Molecule& molecule)
     }
   }
 
-  molecule.setBasisSet(basis);
-  basis->setMolecule(&molecule);
-  load(basis);
+  molecule.setBasisSet(basis.release());
+  molecule.basisSet()->setMolecule(&molecule);
+  load(static_cast<GaussianSet*>(molecule.basisSet()));
 
   // we have to do a few things *after* any modifications to bonds / atoms
   // because those automatically clear partial charges and data
@@ -432,10 +449,14 @@ void ORCAOutput::processLine(std::istream& in,
         if (key.empty())
           break;
 
+        if (m_atomNums.empty())
+          break;
+
         Eigen::MatrixXd charges(m_atomNums.size(), 1);
         charges.setZero();
 
         list = Core::split(key, ' ');
+        bool invalidIndex = false;
         while (!key.empty()) {
           if (list.size() < 4) {
             break;
@@ -444,6 +465,10 @@ void ORCAOutput::processLine(std::istream& in,
           // e.g. 0 O   -0.714286   0.000
           int atomIndex = Core::lexicalCast<int>(list[0]).value_or(0);
           double charge = Core::lexicalCast<double>(list[2]).value_or(0.0);
+          if (atomIndex < 0 || atomIndex >= charges.rows()) {
+            invalidIndex = true;
+            break;
+          }
           charges(atomIndex, 0) = charge;
 
           getline(in, key);
@@ -451,7 +476,8 @@ void ORCAOutput::processLine(std::istream& in,
           list = Core::split(key, ' ');
         }
 
-        m_partialCharges[m_chargeType] = charges;
+        if (!invalidIndex)
+          m_partialCharges[m_chargeType] = charges;
         m_currentMode = NotParsing;
         break;
       }
@@ -460,10 +486,14 @@ void ORCAOutput::processLine(std::istream& in,
         if (key.empty())
           break;
 
+        if (m_atomNums.empty())
+          break;
+
         Eigen::MatrixXd charges(m_atomNums.size(), 1);
         charges.setZero();
 
         list = Core::split(key, ' ');
+        bool invalidIndex = false;
         while (!key.empty()) {
           if (list.size() != 4) {
             break;
@@ -471,13 +501,18 @@ void ORCAOutput::processLine(std::istream& in,
           // e.g. 0 O :   -0.714286
           int atomIndex = Core::lexicalCast<int>(list[0]).value_or(0);
           double charge = Core::lexicalCast<double>(list[3]).value_or(0.0);
+          if (atomIndex < 0 || atomIndex >= charges.rows()) {
+            invalidIndex = true;
+            break;
+          }
           charges(atomIndex, 0) = charge;
 
           getline(in, key);
           key = Core::trimmed(key);
           list = Core::split(key, ' ');
         }
-        m_partialCharges[m_chargeType] = charges;
+        if (!invalidIndex)
+          m_partialCharges[m_chargeType] = charges;
         m_currentMode = NotParsing;
         break;
       }
@@ -486,7 +521,13 @@ void ORCAOutput::processLine(std::istream& in,
           break;
 
         m_bondOrders.clear();
-        while (key[0] == 'B') {
+        constexpr size_t kMinBondOrderLineLength = 27;
+        while (!key.empty() && key[0] == 'B') {
+          if (key.size() < kMinBondOrderLineLength || key[1] != '(') {
+            getline(in, key);
+            key = Core::trimmed(key);
+            continue;
+          }
           // @todo .. parse the bonds based on character position
           // e.g. B(  0-Ru,  1-C ) :   0.4881 B(  0-Ru,  4-C ) :   0.6050
           Index firstAtom =
@@ -814,8 +855,8 @@ void ORCAOutput::processLine(std::istream& in,
         // default to filling m_nmrShifts with zeros
         m_nmrShifts.resize(m_atomNums.size(), 0.0);
         while (!key.empty()) {
-          // should have 4 columns
-          if (list.size() != 4) {
+          // need at least index, element, value
+          if (list.size() < 3) {
             break;
           }
 
@@ -823,7 +864,14 @@ void ORCAOutput::processLine(std::istream& in,
           int atomIndex = Core::lexicalCast<int>(list[0]).value_or(0);
           double shift = Core::lexicalCast<double>(list[2]).value_or(0.0);
           // ignore the anisotropy for now
-          m_nmrShifts[atomIndex] = shift;
+          if (!m_nmrShifts.empty()) {
+            const int maxIndex = static_cast<int>(m_nmrShifts.size());
+            if (atomIndex >= 1 && atomIndex <= maxIndex) {
+              m_nmrShifts[atomIndex - 1] = shift; // ORCA uses 1-based indices
+            } else if (atomIndex >= 0 && atomIndex < maxIndex) {
+              m_nmrShifts[atomIndex] = shift; // tolerate 0-based indices
+            }
+          }
 
           getline(in, key);
           key = Core::trimmed(key);
@@ -843,7 +891,7 @@ void ORCAOutput::processLine(std::istream& in,
         // init all vectors etc.
         m_basisAtomLabel.clear();
         m_orcaNumShells.resize(0);
-        m_basisFunctions.resize(0);
+        clearBasisFunctions();
         m_orcaShellTypes.resize(0);
 
         m_a.resize(0);

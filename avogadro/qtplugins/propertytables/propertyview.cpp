@@ -25,6 +25,7 @@
 #include <QtWidgets/QDialog>
 #include <QtWidgets/QFileDialog>
 #include <QtWidgets/QHeaderView>
+#include <QtWidgets/QInputDialog>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QScrollBar>
 #include <QtWidgets/QSizePolicy>
@@ -85,17 +86,26 @@ PropertyView::PropertyView(PropertyType type, QWidget* parent)
 void PropertyView::selectionChanged(const QItemSelection& selected,
                                     const QItemSelection& deselected)
 {
+  // Guard against re-entrancy: modifying molecule selection triggers
+  // model updates which can cause recursive calls to selectionChanged
+  if (m_updatingSelection)
+    return;
+
   bool ok = false;
   if (m_molecule == nullptr)
     return;
+
+  m_updatingSelection = true;
 
   // Start by clearing the molecule selection
   for (Index i = 0; i < m_molecule->atomCount(); ++i)
     m_molecule->undoMolecule()->setAtomSelected(i, false);
 
   foreach (const QModelIndex& index, selected.indexes()) {
-    if (!index.isValid())
+    if (!index.isValid()) {
+      m_updatingSelection = false;
       return;
+    }
 
     // Since the user can sort
     // we need to find the original index
@@ -106,17 +116,23 @@ void PropertyView::selectionChanged(const QItemSelection& selected,
                    .last()
                    .toLong(&ok) -
                  1;
-    if (!ok)
+    if (!ok) {
+      m_updatingSelection = false;
       return;
+    }
 
     if (m_type == PropertyType::AtomType) {
-      if (static_cast<Index>(rowNum) >= m_molecule->atomCount())
+      if (static_cast<Index>(rowNum) >= m_molecule->atomCount()) {
+        m_updatingSelection = false;
         return;
+      }
 
       m_molecule->setAtomSelected(rowNum, true);
     } else if (m_type == PropertyType::BondType) {
-      if (static_cast<Index>(rowNum) >= m_molecule->bondCount())
+      if (static_cast<Index>(rowNum) >= m_molecule->bondCount()) {
+        m_updatingSelection = false;
         return;
+      }
 
       auto bondPair = m_molecule->bondPair(rowNum);
       m_molecule->undoMolecule()->setAtomSelected(bondPair.first, true);
@@ -155,6 +171,7 @@ void PropertyView::selectionChanged(const QItemSelection& selected,
   } // end loop through selected
 
   m_molecule->emitChanged(Molecule::Atoms);
+  m_updatingSelection = false;
   QTableView::selectionChanged(selected, deselected);
 }
 
@@ -207,6 +224,21 @@ void PropertyView::keyPressEvent(QKeyEvent* event)
     }
   }
   QApplication::clipboard()->setText(text);
+}
+
+bool PropertyView::edit(const QModelIndex& index, EditTrigger trigger,
+                        QEvent* event)
+{
+  if (m_model != nullptr && m_model->isColorIndex(index)) {
+    if (m_inColorEdit)
+      return true;
+    m_inColorEdit = true;
+    m_model->setData(index, QVariant(), Qt::EditRole);
+    m_inColorEdit = false;
+    return true;
+  }
+
+  return QTableView::edit(index, trigger, event);
 }
 
 void PropertyView::copySelectedRowsToClipboard()
@@ -506,6 +538,30 @@ void PropertyView::openExportDialogBox()
   }
 }
 
+void PropertyView::changeChargeType()
+{
+  if (m_model == nullptr || m_molecule == nullptr)
+    return;
+
+  QStringList types = m_model->availableChargeTypes();
+  if (types.isEmpty())
+    return;
+
+  // pre-select the current type
+  QString current = m_model->chargeType();
+
+  int currentIndex = types.indexOf(current, 0, Qt::CaseInsensitive);
+  if (currentIndex < 0)
+    currentIndex = 0;
+
+  bool ok = false;
+  QString selected = QInputDialog::getItem(
+    this, tr("Partial Charge Type"), tr("Select the partial charge type:"),
+    types, currentIndex, false, &ok);
+  if (ok && !selected.isEmpty())
+    m_model->setChargeType(selected);
+}
+
 void PropertyView::contextMenuEvent(QContextMenuEvent* event)
 {
   QMenu menu(this);
@@ -520,6 +576,13 @@ void PropertyView::contextMenuEvent(QContextMenuEvent* event)
           &PropertyView::openExportDialogBox);
 
   if (m_type == PropertyType::AtomType) {
+    // change partial charge type
+    QAction* chargeTypeAction = menu.addAction(tr("Change Charge Type…"));
+    connect(chargeTypeAction, &QAction::triggered, this,
+            &PropertyView::changeChargeType);
+
+    menu.addSeparator();
+
     // freeze atom
     QAction* freezeAtomAction = menu.addAction(tr("Freeze Atom"));
     menu.addAction(freezeAtomAction);

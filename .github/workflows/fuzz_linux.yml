@@ -1,0 +1,153 @@
+name: Linux Fuzz Tests
+
+on:
+  schedule:
+  - cron: '0 3 * * *'
+  workflow_dispatch:
+
+env:
+  QT_VERSION: 6.8.3
+  FEATURES: -DBUILD_GPL_PLUGINS=ON -DBUILD_MOLEQUEUE=OFF -DWITH_COORDGEN=OFF -DQT_VERSION=6
+  AVOGADRO_DATA_ROOT: ${{ github.workspace }}/openchemistry/avogadrodata
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    name: Ubuntu Fuzz Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout workflow repository
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+    - name: Checkout Repositories
+      uses: ./.github/actions/checkout-repositories
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get -qq update
+        sudo apt-get -qq install clang ninja-build libeigen3-dev libboost-all-dev libglew-dev libxml2-dev
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@d325aaf2a8baeeda41ad0b5d39f84a6af9bcf005 # v4.3.0
+      with:
+        cache: true
+        version: ${{ env.QT_VERSION }}
+
+    - name: Configure
+      run: |
+        if [ ! -d "${{ runner.workspace }}/build" ]; then mkdir "${{ runner.workspace }}/build"; fi
+        cd "${{ runner.workspace }}/build"
+        CFLAGS="-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined" \
+        CXXFLAGS="-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined" \
+        LDFLAGS="-fsanitize=address,undefined" \
+        CC=clang CXX=clang++ cmake -G Ninja $GITHUB_WORKSPACE/openchemistry ${{env.FEATURES}} -DCMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_TESTING=ON -DTEST_QTGL=OFF -DENABLE_FUZZ=ON -DUSE_SYSTEM_EIGEN=TRUE
+      shell: bash
+
+    - name: Build
+      run: |
+        CC=clang CXX=clang++ cmake --build .
+      shell: bash
+      working-directory: ${{ runner.workspace }}/build
+
+    - name: Run fuzz tests
+      shell: bash
+      run: |
+        set -uo pipefail
+        cd "${{ runner.workspace }}/build/avogadrolibs"
+        cmake -DENABLE_FUZZ=ON .
+        cmake --build .
+
+        export LLVM_SYMBOLIZER_PATH="$(command -v llvm-symbolizer)"
+        export ASAN_OPTIONS="symbolize=1:detect_leaks=1:abort_on_error=1:color=always"
+        export UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=1"
+
+        io_fuzzers=(cjson cml sdf pdb xyz)
+        quantum_fuzzers=(cube fchk molden orca qcschema)
+        core_fuzzers=(bond crystal graph molecule neighbor ring utilities)
+        qtgui_fuzzers=(rwmolecule)
+
+        artifact_root="${{ runner.workspace }}/build/avogadrolibs/fuzz-artifacts"
+
+        failures=0
+
+        for f in "${io_fuzzers[@]}"; do
+          echo "Running IO fuzzer: $f"
+          artifact_dir="${artifact_root}/io/${f}"
+          mkdir -p "${artifact_dir}"
+          corpus_dir="${AVOGADRO_DATA_ROOT}/data/${f}"
+          if [ -d "${corpus_dir}" ]; then
+            if ! "./bin/fuzz_${f}" -max_total_time=60 -timeout=10 -artifact_prefix="${artifact_dir}/" "${corpus_dir}" 2>&1 | tee "${artifact_dir}/run.log"; then
+              failures=1
+            fi
+          else
+            if ! "./bin/fuzz_${f}" -max_total_time=60 -timeout=10 -artifact_prefix="${artifact_dir}/" 2>&1 | tee "${artifact_dir}/run.log"; then
+              failures=1
+            fi
+          fi
+        done
+
+        for f in "${quantum_fuzzers[@]}"; do
+          echo "Running QuantumIO fuzzer: $f"
+          artifact_dir="${artifact_root}/quantumio/${f}"
+          mkdir -p "${artifact_dir}"
+          corpus_dir="${AVOGADRO_DATA_ROOT}/data/${f}"
+          if [ -d "${corpus_dir}" ]; then
+            if ! "./bin/fuzz_${f}" -max_total_time=60 -timeout=10 -artifact_prefix="${artifact_dir}/" "${corpus_dir}" 2>&1 | tee "${artifact_dir}/run.log"; then
+              failures=1
+            fi
+          else
+            if ! "./bin/fuzz_${f}" -max_total_time=60 -timeout=10 -artifact_prefix="${artifact_dir}/" 2>&1 | tee "${artifact_dir}/run.log"; then
+              failures=1
+            fi
+          fi
+        done
+
+        for f in "${core_fuzzers[@]}"; do
+          echo "Running Core fuzzer: $f"
+          artifact_dir="${artifact_root}/core/${f}"
+          mkdir -p "${artifact_dir}"
+          corpus_dir="${AVOGADRO_DATA_ROOT}/data/core/${f}"
+          if [ -d "${corpus_dir}" ]; then
+            if ! "./bin/fuzz_core_${f}" -max_total_time=60 -timeout=10 -artifact_prefix="${artifact_dir}/" "${corpus_dir}" 2>&1 | tee "${artifact_dir}/run.log"; then
+              failures=1
+            fi
+          else
+            if ! "./bin/fuzz_core_${f}" -max_total_time=60 -timeout=10 -artifact_prefix="${artifact_dir}/" 2>&1 | tee "${artifact_dir}/run.log"; then
+              failures=1
+            fi
+          fi
+        done
+
+        for f in "${qtgui_fuzzers[@]}"; do
+          echo "Running QtGui fuzzer: $f"
+          artifact_dir="${artifact_root}/qtgui/${f}"
+          mkdir -p "${artifact_dir}"
+          corpus_dir="${AVOGADRO_DATA_ROOT}/data/qtgui/${f}"
+          if [ -d "${corpus_dir}" ]; then
+            if ! "./bin/fuzz_qtgui_${f}" -max_total_time=60 -timeout=10 -artifact_prefix="${artifact_dir}/" "${corpus_dir}" 2>&1 | tee "${artifact_dir}/run.log"; then
+              failures=1
+            fi
+          else
+            if ! "./bin/fuzz_qtgui_${f}" -max_total_time=60 -timeout=10 -artifact_prefix="${artifact_dir}/" 2>&1 | tee "${artifact_dir}/run.log"; then
+              failures=1
+            fi
+          fi
+        done
+
+        exit "${failures}"
+
+    - name: Upload fuzz crash artifacts
+      if: ${{ always() }}
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      with:
+        name: fuzz-crashes
+        path: |
+          ${{ runner.workspace }}/build/avogadrolibs/crash*
+          ${{ runner.workspace }}/build/avogadrolibs/timeout*
+          ${{ runner.workspace }}/build/avogadrolibs/leak*
+          ${{ runner.workspace }}/build/avogadrolibs/fuzz-artifacts
+        if-no-files-found: ignore

@@ -18,6 +18,7 @@
 #include <avogadro/core/avogadrocore.h>
 #include <avogadro/core/bond.h>
 #include <avogadro/core/crystaltools.h>
+#include <avogadro/core/residue.h>
 #include <avogadro/core/unitcell.h>
 #include <avogadro/core/vector.h>
 
@@ -343,6 +344,14 @@ public:
    */
   bool setColor(Index atomId, Vector3ub color);
 
+  /**
+   * Set the color of a single residue.
+   * @param residueId The index of the residue to modify.
+   * @param color The new color.
+   * @return True on success, false otherwise.
+   */
+  bool setResidueColor(Index residueId, Vector3ub color);
+
   bool setLayer(Index atomId, size_t layer);
   size_t layer(Index atomId) const;
 
@@ -614,9 +623,12 @@ public:
    * Fill unit cell using transforms for the space group. Changes are emitted.
    * @param hallNumber The hall number to be used for transforming the cell.
    * @param cartTol Cartesian tolerance for comparing atom positions.
+   * @param allCopies If true, all copies will be filled (i.e. edges and
+   * corners)
    * @return True if the algorithm succeeded, and false if it failed.
    */
-  bool fillUnitCell(unsigned short hallNumber, double cartTol = 1e-5);
+  bool fillUnitCell(unsigned short hallNumber, double cartTol = 1e-5,
+                    bool allCopies = false);
 
   /**
    * Use transforms to reduce a cell to its asymmetric unit. Changes are

@@ -18,8 +18,10 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cstdio>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 
 using json = nlohmann::json;
 
@@ -86,6 +88,57 @@ json eigenColToJson(const MatrixX& matrix, int column)
   return j;
 }
 
+// Sanitize a raw string by replacing invalid UTF-8 sequences with '?'
+// (to work around a bug in Open Babel space group output)
+std::string sanitizeUtf8(const std::string& s)
+{
+  std::string result;
+  result.reserve(s.size());
+  const unsigned char* bytes = reinterpret_cast<const unsigned char*>(s.data());
+  size_t len = s.size();
+
+  for (size_t i = 0; i < len; ++i) {
+    if (bytes[i] <= 0x7F) {
+      result.push_back(static_cast<char>(bytes[i]));
+      continue;
+    }
+
+    size_t remaining = 0;
+    if ((bytes[i] & 0xE0) == 0xC0)
+      remaining = 1;
+    else if ((bytes[i] & 0xF0) == 0xE0)
+      remaining = 2;
+    else if ((bytes[i] & 0xF8) == 0xF0)
+      remaining = 3;
+    else {
+      result.push_back('?'); // invalid lead byte
+      continue;
+    }
+
+    if (i + remaining >= len) {
+      result.push_back('?'); // truncated sequence
+      continue;
+    }
+
+    bool valid = true;
+    for (size_t j = 1; j <= remaining; ++j) {
+      if ((bytes[i + j] & 0xC0) != 0x80) {
+        valid = false;
+        break;
+      }
+    }
+
+    if (valid) {
+      for (size_t j = 0; j <= remaining; ++j)
+        result.push_back(static_cast<char>(bytes[i + j]));
+      i += remaining;
+    } else {
+      result.push_back('?'); // invalid continuation
+    }
+  }
+  return result;
+}
+
 bool CjsonFormat::read(std::istream& file, Molecule& molecule)
 {
   return deserialize(file, molecule, true);
@@ -95,6 +148,7 @@ bool CjsonFormat::deserialize(std::istream& file, Molecule& molecule,
                               bool isJson)
 {
   json jsonRoot;
+
   // could throw parse errors
   try {
     if (isJson)
@@ -109,8 +163,18 @@ bool CjsonFormat::deserialize(std::istream& file, Molecule& molecule,
     return false;
   }
 
+  if (jsonRoot.is_discarded() && isJson) {
+    // Initial parse failed - try sanitizing UTF-8 and re-parsing
+    file.clear();
+    file.seekg(0);
+    std::string content((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
+    std::string sanitizedContent = sanitizeUtf8(content);
+    jsonRoot = json::parse(sanitizedContent, nullptr, false);
+  }
+
   if (jsonRoot.is_discarded()) {
-    appendError("Error reading CJSON file.");
+    appendError("Error reading CJSON file. Root is discarded.");
     return false;
   }
 
@@ -291,7 +355,7 @@ bool CjsonFormat::deserialize(std::istream& file, Molecule& molecule,
     } // might also be a 3xN array for per-axis freezing
     else if (frozen.is_array() && frozen.size() == 3 * atomCount) {
       for (Index i = 0; i < atomCount; ++i) {
-        bool freeze;
+        bool freeze = false;
         if (frozen[3 * i].is_number())
           freeze = (frozen[3 * i] != 0);
         else if (frozen[3 * i].is_boolean())
@@ -396,13 +460,21 @@ bool CjsonFormat::deserialize(std::istream& file, Molecule& molecule,
         if (!residue.is_object())
           continue; // malformed
 
+        // Validate required fields exist and have correct types
+        if (!residue.contains("name") || !residue["name"].is_string())
+          continue;
+        if (!residue.contains("id") || !residue["id"].is_number_integer())
+          continue;
+        if (!residue.contains("chainId") ||
+            !residue["chainId"].is_number_integer())
+          continue;
+
         auto name = residue["name"].get<std::string>();
         auto id = static_cast<Index>(residue["id"]);
-        auto chainId = residue["chainId"].get<char>();
+        auto chainId = static_cast<char>(residue["chainId"].get<int>());
         Residue newResidue(name, id, chainId);
 
-        json hetero = residue["hetero"];
-        if (hetero == true)
+        if (residue.contains("hetero") && residue["hetero"] == true)
           newResidue.setHeterogen(true);
 
         int secStruct = residue.value("secStruct", -1);
@@ -411,26 +483,29 @@ bool CjsonFormat::deserialize(std::istream& file, Molecule& molecule,
             static_cast<Avogadro::Core::Residue::SecondaryStructure>(
               secStruct));
 
-        json atomsResidue = residue["atoms"];
-        if (atomsResidue.is_object()) {
+        if (residue.contains("atoms") && residue["atoms"].is_object()) {
+          json atomsResidue = residue["atoms"];
           for (auto& item : atomsResidue.items()) {
-            if (item.value() < molecule.atomCount()) {
-              const Atom& atom = molecule.atom(item.value());
+            if (item.value().is_number_integer() &&
+                static_cast<Index>(item.value()) < molecule.atomCount()) {
+              const Atom& atom =
+                molecule.atom(static_cast<Index>(item.value()));
               newResidue.addResidueAtom(item.key(), atom);
             }
           }
         }
-        json color = residue["color"];
-        if (color.is_array() && color.size() == 3) {
+        if (residue.contains("color") && residue["color"].is_array() &&
+            residue["color"].size() == 3 && isNumericArray(residue["color"])) {
+          json color = residue["color"];
           Vector3ub col = Vector3ub(color[0], color[1], color[2]);
           newResidue.setColor(col);
         }
 
         molecule.addResidue(newResidue);
 
-        json label = residue["label"];
-        if (label.is_string())
-          molecule.setResidueLabel(molecule.residueCount() - 1, label);
+        if (residue.contains("label") && residue["label"].is_string())
+          molecule.setResidueLabel(molecule.residueCount() - 1,
+                                   residue["label"]);
       }
     }
   }
@@ -474,18 +549,20 @@ bool CjsonFormat::deserialize(std::istream& file, Molecule& molecule,
           return false;
         }
       }
-      if (unitCellObject != nullptr)
+      if (unitCellObject != nullptr) {
         molecule.setUnitCell(unitCellObject);
 
-      // check for Hall number if present
-      if (unitCell["hallNumber"].is_number()) {
-        auto hallNumber = static_cast<int>(unitCell["hallNumber"]);
-        if (hallNumber > 0 && hallNumber < 531)
-          molecule.setHallNumber(hallNumber);
-      } else if (unitCell["spaceGroup"].is_string()) {
-        auto hallNumber = Core::SpaceGroups::hallNumber(unitCell["spaceGroup"]);
-        if (hallNumber != 0)
-          molecule.setHallNumber(hallNumber);
+        // check for Hall number if present
+        if (unitCell["hallNumber"].is_number()) {
+          auto hallNumber = static_cast<int>(unitCell["hallNumber"]);
+          if (hallNumber > 0 && hallNumber < 531)
+            molecule.setHallNumber(hallNumber);
+        } else if (unitCell["spaceGroup"].is_string()) {
+          auto hallNumber =
+            Core::SpaceGroups::hallNumber(unitCell["spaceGroup"]);
+          if (hallNumber != 0)
+            molecule.setHallNumber(hallNumber);
+        }
       }
     }
   }
@@ -1525,9 +1602,10 @@ bool CjsonFormat::serialize(std::ostream& file, const Molecule& molecule,
     }
 
     auto layer = LayerManager::getMoleculeInfo(&molecule)->layer;
-    if (layer.atomCount()) {
+    if (layer.atomCount() && molecule.atomCount()) {
       json atomLayer;
-      for (Index i = 0; i < layer.atomCount(); ++i) {
+      // Use molecule atom count to avoid writing stale layer data
+      for (Index i = 0; i < molecule.atomCount(); ++i) {
         atomLayer.push_back(layer.getLayerID(i));
       }
       atoms["layer"] = atomLayer;

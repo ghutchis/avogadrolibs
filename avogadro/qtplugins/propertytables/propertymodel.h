@@ -58,6 +58,12 @@ public:
 
   // Return what type of model this is
   PropertyType type() const { return m_type; };
+  bool isColorIndex(const QModelIndex& index) const;
+
+  // Partial charge type selection
+  QStringList availableChargeTypes() const;
+  void setChargeType(const QString& type);
+  QString chargeType() const { return m_chargeType; }
 
   // Generate all data pertaining to angles and torsions
   void updateCache() const;
@@ -73,10 +79,16 @@ public:
 private:
   PropertyType m_type;
   QtGui::Molecule* m_molecule;
+  QString m_chargeType; // user-selected charge type override (empty = auto)
 
   mutable bool m_validCache;
   mutable std::vector<Core::Angle> m_angles;
   mutable std::vector<Core::Dihedral> m_torsions;
+
+  // Track structure counts to detect actual structural changes vs
+  // coordinate-only
+  mutable Index m_lastAtomCount = 0;
+  mutable Index m_lastBondCount = 0;
 
   QString secStructure(unsigned int type) const;
 

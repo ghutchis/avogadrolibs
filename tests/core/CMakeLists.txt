@@ -1,5 +1,6 @@
 # Specify the name of each test (the Test will be appended where needed).
 set(tests
+  AngleIterator
   Array
   Atom
   AtomTyper
@@ -8,14 +9,19 @@ set(tests
   CoordinateBlockGenerator
   CoordinateSet
   Cube
+  DihedralIterator
   Eigen
   Element
+  GaussianSet
   Graph
+  InternalCoordinates
   Mesh
   Molecule
   Mutex
   NeighborPerceiver
+  Residue
   RingPerceiver
+  SecondaryStructure
   Utilities
   UnitCell
   Variant
@@ -45,3 +51,23 @@ foreach(TestName ${tests})
   add_test(NAME "Core-${TestName}"
     COMMAND AvogadroTests "--gtest_filter=${TestName}Test.*")
 endforeach()
+
+if (DEFINED ENV{LIB_FUZZING_ENGINE})
+  option(ENABLE_FUZZ "Enable fuzz testing." ON)
+else()
+  option(ENABLE_FUZZ "Enable fuzz testing." OFF)
+endif()
+
+if(ENABLE_FUZZ OR DEFINED ENV{LIB_FUZZING_ENGINE})
+  set(core_fuzz array bond crystal graph molecule neighbor residue ring secondarystructure utilities variant variantmap)
+  foreach(fuzzName ${core_fuzz})
+    add_executable(fuzz_core_${fuzzName} fuzz-${fuzzName}.cpp)
+    if(DEFINED ENV{LIB_FUZZING_ENGINE})
+      target_link_libraries(fuzz_core_${fuzzName} PRIVATE Avogadro::Core $ENV{LIB_FUZZING_ENGINE})
+    else()
+      target_compile_options(fuzz_core_${fuzzName} PRIVATE -g -fsanitize=fuzzer)
+      target_link_options(fuzz_core_${fuzzName} PRIVATE -fsanitize=fuzzer)
+      target_link_libraries(fuzz_core_${fuzzName} PRIVATE Avogadro::Core)
+    endif()
+  endforeach()
+endif()
